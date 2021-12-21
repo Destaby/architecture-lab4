@@ -2,8 +2,8 @@ package main
 
 import (
 	"bufio"
-	"strings"
 	"os"
+	"strings"
 	"sync"
 )
 
@@ -36,9 +36,9 @@ func (q *cmdQueue) pull() Command {
 }
 
 type Loop struct {
-	queue *cmdQueue
+	queue       *cmdQueue
 	stopPulling bool
-	stop chan struct{}
+	stop        chan struct{}
 }
 
 func (l *Loop) Post(cmd Command) {
@@ -50,11 +50,14 @@ func (l *Loop) Start() {
 	l.stop = make(chan struct{})
 	go func() {
 		for {
-			if len(l.queue.c) == 0 && l.stopPulling {
-				break
+			if len(l.queue.c) == 0 {
+				if l.stopPulling {
+					break
+				}
+			} else {
+				cmd := l.queue.pull()
+				cmd.Execute(l)
 			}
-			cmd := l.queue.pull()
-			cmd.Execute(l)		
 		}
 		l.stop <- struct{}{}
 	}()
@@ -67,13 +70,13 @@ func (l *Loop) AwaitFinish() {
 
 func parse(line string) Command {
 	parts := strings.Fields(line)
-	var cmd Command;
+	var cmd Command
 	if len(parts) == 2 && parts[0] == "print" {
 		cmd = &printCommand{arg: parts[1]}
 	} else if len(parts) == 2 && parts[0] == "palindrom" {
 		cmd = &palindromCommand{arg: parts[1]}
 	} else {
-	  var errMsg [2]string
+		var errMsg [2]string
 		if len(parts) != 2 {
 			errMsg[0] = "\nReason: Comand should have one argument"
 		}
@@ -86,18 +89,18 @@ func parse(line string) Command {
 }
 
 func main() {
-	loop := new(Loop) 
+	loop := new(Loop)
 
-	loop.Start() 
-	
-	if input, err := os.Open("test.txt"); err == nil {  
-		defer input.Close() 
-		scanner := bufio.NewScanner(input) 
-		for scanner.Scan() { 
-			commandLine := scanner.Text() 
-			cmd := parse(commandLine) // parse the line to get a Command  
-			loop.Post(cmd) 
-		} 
+	loop.Start()
+
+	if input, err := os.Open("test.txt"); err == nil {
+		defer input.Close()
+		scanner := bufio.NewScanner(input)
+		for scanner.Scan() {
+			commandLine := scanner.Text()
+			cmd := parse(commandLine) // parse the line to get a Command
+			loop.Post(cmd)
+		}
 	}
 	loop.AwaitFinish()
 }
